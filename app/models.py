@@ -105,9 +105,9 @@ class Event(db.Model):
 
 def create_test_data():
     testUser = User(email="testuser@example.com", username="testuser")
-    testUser.set_password("testpassword")
+    testUser.set_password("thisisatestpassword")
     testUser2 = User(email="testuser2@example.com", username="testuser2")
-    testUser2.set_password("testpassword")
+    testUser2.set_password("thisisanotherpassword")
     friendship = Friendship(
         requester_email=testUser.email,
         receiver_email=testUser2.email,

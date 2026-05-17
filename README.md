@@ -11,7 +11,7 @@ A web app developed for the CITS3403 Agile Web Development group project. This i
 | UWA ID   | Name               | GitHub Username |
 |----------|--------------------|-----------------|
 | 23810308 | Allan Wu           | allanwupi       |
-| 24272225 | Aidan Mills        | Rangarade       |
+| 24272225 | Audrey Mills       | Rangarade       |
 | 24367195 | Hongshen Zheng     | hz7443          |
 | 24227546 | Tashan Kirubagaran | tashan-kiru     |
 
@@ -24,20 +24,20 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Initalise/update database tables:
-
-```bash
-flask --app mycal db upgrade
-```
-
-Set a secret key:
+Set a secret key environment variable:
 ```bash
 export MYCAL_SECRET_KEY="your-secret-key-here"
 ```
 
-In Windows Powershell, run instead:
+In Windows Powershell, run this instead:
 ```powershell
 $Env:MYCAL_SECRET_KEY="your-secret-key-here"
+```
+
+Initalise/update database tables:
+
+```bash
+flask --app mycal db upgrade
 ```
 
 Run the app:

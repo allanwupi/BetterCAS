@@ -250,36 +250,6 @@ def upload():
         "count": count,
         "events": [e.to_dict() for e in events]
     }), 200
-    
-    file = request.files['file']
-    if not file or not file.filename.endswith('.ics'):
-        return {"error": "Invalid file"}, 400
-    if not(file.filename):
-        return {"error": "No file provided"}, 400
-    cal = Calendar.from_ical(file.read())
-    count = 0
-    seen = set()
-    events = []
-    for component in cal.walk():
-        if component.name == "VEVENT":
-            uid = str(component.get('uid'))
-            if uid in seen:
-                continue
-            seen.add(uid)
-            event = Event(
-                title=str(component.get('summary')),
-                start=component.get('dtstart').dt,
-                end=component.get('dtend').dt if component.get('dtend') else None,
-                backgroundColor=component.get('color', '#6366f1'),
-                location=component.get('location', ''),
-                description=component.get('description', ''),
-                owner = current_user.email
-            )
-            db.session.add(event)
-            events.append(event)
-            count += 1
-    db.session.commit()
-    return jsonify([e.to_dict() for e in events]), 200
 
 @main.route('/export/ics', methods=['GET'])
 @login_required
@@ -665,7 +635,7 @@ def get_friends_list():
                 else friendship.requester_email
             )
 
-            friend = User.query.get(friend_email)
+            friend = db.session.get(User, friend_email)
 
             accepted_friends.append({
                 'friendship_id': friendship.id,
@@ -684,7 +654,7 @@ def get_friends_list():
                 })
 
             elif friendship.receiver_email == current_user.email:
-                requester = User.query.get(friendship.requester_email)
+                requester = db.session.get(User, friendship.requester_email)
 
                 pending_received.append({
                     'friendship_id': friendship.id,
