@@ -5,8 +5,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const todoList = document.getElementById('todoList');
   const filterButtons = document.querySelectorAll('.filter-buttons button');
 
+  // Tracks which filter is currently active: all, pending, or completed
   let currentFilter = 'all';
 
+  // Formats the task due date into a readable date/time
   function formatDate(dateString) {
     if (!dateString) return 'No due date';
     const date = new Date(dateString);
@@ -22,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return `${datePart} ${timePart}`;
   }
 
+  // For the Bootstrap badge colour based on task status
   function getBadgeClass(status) {
     if (status === 'Not Started') return 'bg-info text-dark';
     if (status === 'In Progress') return 'bg-warning text-dark';
@@ -33,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return Array.from(todoList.querySelectorAll('.task-item'));
   }
 
+  // Shows "No tasks found" when the filtered list is empty
   function setEmptyState() {
     const taskItems = getTaskItems();
     const visibleTaskItems = taskItems.filter(taskItem => !taskItem.classList.contains('d-none'));
@@ -63,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Creates a new task list item using task data from the server
   function createTaskItem(task) {
     const li = document.createElement('li');
     li.className = 'task-item d-flex justify-content-between align-items-center';
@@ -100,6 +105,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return li;
   }
 
+  // Applies the selected filter to show/hide tasks
   function applyFilter() {
     const taskItems = getTaskItems();
 
@@ -144,7 +150,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Disable the button while saving
     addTodoBtn.disabled = true;
-  
+    // Save the new task to the backend
     fetch('/save/task', {
       method: 'POST',
       headers: {
@@ -188,6 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  // Handles delete and status button clicks inside the todo list
   todoList.addEventListener('click', (e) => {
     if (e.target.closest('.delete-task')) {
       const button = e.target.closest('.delete-task');
@@ -197,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Disable the button while deleting
         button.disabled = true;
-        
+        // Delete the selected task from the backend
         fetch('/delete-event', {
           method: 'POST',
           headers: {
@@ -230,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (taskItem) {
         const taskId = taskItem.dataset.taskId;
         const statusButton = taskItem.querySelector('.dropdown-toggle');
-
+        // Update the selected task's status in the backend
         fetch('/update-task-status', {
           method: 'POST',
           headers: {
@@ -269,6 +276,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
+  // Set up filter buttons for all, pending, and completed tasks
   filterButtons.forEach(button => {
     button.addEventListener('click', () => {
       filterButtons.forEach(btn => btn.classList.remove('active-filter'));

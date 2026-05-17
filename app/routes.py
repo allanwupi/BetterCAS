@@ -1,12 +1,13 @@
 from flask import flash, jsonify, redirect, render_template, request, url_for, make_response
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import or_
-from app import app, db
+from app import db
 from app.models import Event, TaskStatus, User
 from app.forms import LoginForm, SignupForm
 from datetime import datetime, time, timedelta
 from icalendar import Calendar, Event as ICalEvent
 from app.models import Event, TaskStatus, User, Friendship, FriendshipStatus
+from app.blueprints import main
 
 
 def normalise_email(email):
@@ -17,7 +18,7 @@ def normalise_username(username):
     return (username or '').strip()
 
 
-@app.template_filter('format_datetime')
+@main.app_template_filter('format_datetime')
 def format_datetime(dt):
     # "%-d", "%-I" is not supported on Windows, so we need to remove leading zeros manually
     day = dt.strftime("%d").lstrip("0")
@@ -26,10 +27,10 @@ def format_datetime(dt):
     # equivalent to strftime("%b %-d, %Y %-I:%M %p") on Unix-based systems
 
 
-@app.route('/', methods=['GET'])
+@main.route('/', methods=['GET'])
 def landing():
     if current_user.is_authenticated:
-        return redirect(url_for('calendar'))
+        return redirect(url_for('main.calendar'))
     login_form = LoginForm()
     signup_form = SignupForm()
     return render_template(
@@ -39,11 +40,11 @@ def landing():
     )
 
 
-@app.route('/signup', methods=['POST'])
+@main.route('/signup', methods=['POST'])
 def signup():
 
     if current_user.is_authenticated:
-        return redirect(url_for('calendar'))
+        return redirect(url_for('main.calendar'))
 
     form = SignupForm()
 
@@ -58,7 +59,7 @@ def signup():
             flash('Passwords do not match.', 'danger')
         else:
             flash('Please check your sign up details and try again.', 'danger')
-        return redirect(url_for('landing'))
+        return redirect(url_for('main.landing'))
 
     username = normalise_username(form.username.data)
     email = normalise_email(form.email.data)
@@ -76,7 +77,7 @@ def signup():
             flash('An account with that email already exists.', 'danger')
         else:
             flash('That username is already taken.', 'danger')
-        return redirect(url_for('landing'))
+        return redirect(url_for('main.landing'))
 
     user = User(
         email=email,
@@ -89,19 +90,19 @@ def signup():
     login_user(user)
     flash('Account created successfully.', 'success')
 
-    return redirect(url_for('calendar'))
+    return redirect(url_for('main.calendar'))
 
 
-@app.route('/login', methods=['POST'])
+@main.route('/login', methods=['POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('calendar'))
+        return redirect(url_for('main.calendar'))
 
     form = LoginForm()
 
     if not form.validate_on_submit():
         flash('Invalid form submission. Please try again.','danger')
-        return redirect(url_for('landing'))
+        return redirect(url_for('main.landing'))
 
     identifier = form.identifier.data.strip()
     password = form.password.data or ''
@@ -116,30 +117,30 @@ def login():
 
     if not user or not user.check_password(password):
         flash('Invalid login details. Please try again.','danger')
-        return redirect(url_for('landing'))
+        return redirect(url_for('main.landing'))
 
     login_user(user, remember=remember)
 
     flash('Logged in successfully.','success')
 
-    return redirect(url_for('calendar'))
+    return redirect(url_for('main.calendar'))
 
 
-@app.route('/logout', methods=['POST'])
+@main.route('/logout', methods=['POST'])
 @login_required
 def logout():
     logout_user()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('landing'))
+    return redirect(url_for('main.landing'))
 
 
-@app.route('/calendar', methods=['GET'])
+@main.route('/calendar', methods=['GET'])
 @login_required
 def calendar():
     return render_template('calendar-page.html', calendar_active=True)
 
 
-@app.route('/todo', methods=['GET'])
+@main.route('/todo', methods=['GET'])
 @login_required
 def to_do_list():
     tasks = (
@@ -151,52 +152,106 @@ def to_do_list():
     return render_template('todo-page.html', todo_active=True, tasks=tasks)
 
 
-@app.route('/friends', methods=['GET'])
+@main.route('/friends', methods=['GET'])
 @login_required
 def friends():
     return render_template('friends-page.html', friends_active=True)
 
 
-@app.route('/import', methods=['GET'])
+@main.route('/import', methods=['GET'])
 @login_required
 def imported_calendars():
     return render_template('import-page.html', import_active=True)
 
 
-@app.route('/upload', methods=['POST'])
+@main.route('/upload', methods=['POST'])
 @login_required
 def upload():
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
     file = request.files['file']
-    if not file or not file.filename.endswith('.ics'):
-        return {"error": "Invalid file"}, 400
-    if not(file.filename):
-        return {"error": "No file provided"}, 400
-    cal = Calendar.from_ical(file.read())
-    count = 0
+
+    if not file or file.filename == '':
+        return jsonify({"error": "No file provided"}), 400
+
+    if not file.filename.lower().endswith('.ics'):
+        return jsonify({"error": "Invalid file type"}), 400
+
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+
+    if size > 1_000_000:
+        return jsonify({"error": "File too large"}), 400
+    
+    try:
+        cal = Calendar.from_ical(file.read())
+    except Exception:
+        return jsonify({"error": "Invalid ICS format"}), 400
+
     seen = set()
     events = []
+    count = 0
     for component in cal.walk():
-        if component.name == "VEVENT":
-            uid = str(component.get('uid'))
-            if uid in seen:
+        if component.name != "VEVENT":
+            continue
+
+        try:
+            uid = str(component.get('uid', ''))
+            if not uid or uid in seen:
                 continue
             seen.add(uid)
+
+            dtstart = component.get('dtstart')
+            if not dtstart:
+                continue
+
+            start = dtstart.dt
+
+            if not hasattr(start, 'isoformat'):
+                continue
+
+            dtend = component.get('dtend')
+            end = dtend.dt if dtend else None
+
+            if end and end < start:
+                end = start
+
+            title = str(component.get('summary', 'Untitled Event'))[:255]
+            location = str(component.get('location', ''))[:255]
+            description = str(component.get('description', ''))[:1000]
+
             event = Event(
-                title=str(component.get('summary')),
-                start=component.get('dtstart').dt,
-                end=component.get('dtend').dt if component.get('dtend') else None,
+                title=title,
+                start=start,
+                end=end,
                 backgroundColor=component.get('color', '#6366f1'),
-                location=component.get('location', ''),
-                description=component.get('description', ''),
-                owner = current_user.email
+                location=location,
+                description=description,
+                owner=current_user.email
             )
+
             db.session.add(event)
             events.append(event)
             count += 1
-    db.session.commit()
-    return jsonify([e.to_dict() for e in events]), 200
 
-@app.route('/export/ics', methods=['GET'])
+        except Exception:
+            continue
+
+    if count == 0:
+        return jsonify({"error": "No valid events found in file"}), 400
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Import successful",
+        "count": count,
+        "events": [e.to_dict() for e in events]
+    }), 200
+
+@main.route('/export/ics', methods=['GET'])
 @login_required
 def export_ics():
     cal = Calendar()
@@ -240,14 +295,14 @@ def export_ics():
     return response
 
  
-@app.route('/get-events', methods=['GET'])
+@main.route('/get-events', methods=['GET'])
 @login_required
 def get_events():
     events = db.session.query(Event).filter_by(owner=current_user.email).all()
     return jsonify([event.to_dict() for event in events]), 200
 
 
-@app.route('/save/<dtype>', methods=['POST'])
+@main.route('/save/<dtype>', methods=['POST'])
 @login_required
 def save_event_task(dtype):
     """Save a new event or task to the database with server-side validation.
@@ -357,7 +412,7 @@ def save_event_task(dtype):
         return jsonify({'error': 'Internal Server Error'}), 500
 
 
-@app.route('/update-task-status', methods=['POST'])
+@main.route('/update-task-status', methods=['POST'])
 @login_required
 def update_task_status():
     """Updates the status of a task (request should only contain the task ID and new status)."""
@@ -389,7 +444,7 @@ def update_task_status():
         return jsonify({'error': 'Internal Server Error'}), 500
 
 
-@app.route('/delete-event', methods=['POST'])
+@main.route('/delete-event', methods=['POST'])
 @login_required
 def delete():
     """Delete an event/task from the database."""
@@ -414,7 +469,7 @@ def delete():
         return jsonify({'error': 'Internal Server Error'}), 500
 
 
-@app.route('/api/friends/search', methods=['GET'])
+@main.route('/api/friends/search', methods=['GET'])
 @login_required
 def search_users():
     query = request.args.get('query', '').strip()
@@ -460,7 +515,7 @@ def search_users():
     return jsonify(results)
 
 
-@app.route('/api/friends/send-request', methods=['POST'])
+@main.route('/api/friends/send-request', methods=['POST'])
 @login_required
 def send_friend_request():
     data = request.get_json()
@@ -505,7 +560,7 @@ def send_friend_request():
     })
 
 
-@app.route('/api/friends/accept-request/<int:friendship_id>', methods=['POST'])
+@main.route('/api/friends/accept-request/<int:friendship_id>', methods=['POST'])
 @login_required
 def accept_friend_request(friendship_id):
     friendship = Friendship.query.get_or_404(friendship_id)
@@ -522,7 +577,7 @@ def accept_friend_request(friendship_id):
     })
 
 
-@app.route('/api/friends/reject-request/<int:friendship_id>', methods=['POST'])
+@main.route('/api/friends/reject-request/<int:friendship_id>', methods=['POST'])
 @login_required
 def reject_friend_request(friendship_id):
     friendship = Friendship.query.get_or_404(friendship_id)
@@ -539,7 +594,7 @@ def reject_friend_request(friendship_id):
     })
 
 
-@app.route('/api/friends/remove/<int:friendship_id>', methods=['DELETE'])
+@main.route('/api/friends/remove/<int:friendship_id>', methods=['DELETE'])
 @login_required
 def remove_friend(friendship_id):
     friendship = Friendship.query.get_or_404(friendship_id)
@@ -558,7 +613,7 @@ def remove_friend(friendship_id):
     })
 
 
-@app.route('/api/friends/list', methods=['GET'])
+@main.route('/api/friends/list', methods=['GET'])
 @login_required
 def get_friends_list():
     friendships = Friendship.query.filter(
@@ -580,7 +635,7 @@ def get_friends_list():
                 else friendship.requester_email
             )
 
-            friend = User.query.get(friend_email)
+            friend = db.session.get(User, friend_email)
 
             accepted_friends.append({
                 'friendship_id': friendship.id,
@@ -599,7 +654,7 @@ def get_friends_list():
                 })
 
             elif friendship.receiver_email == current_user.email:
-                requester = User.query.get(friendship.requester_email)
+                requester = db.session.get(User, friendship.requester_email)
 
                 pending_received.append({
                     'friendship_id': friendship.id,
@@ -713,7 +768,7 @@ def generate_common_free_slots(start_range, end_range, busy_events):
     return free_slots
 
 
-@app.route('/api/friends/availability', methods=['POST'])
+@main.route('/api/friends/availability', methods=['POST'])
 @login_required
 def get_friend_availability():
     data = request.get_json() or {}
@@ -746,9 +801,8 @@ def get_friend_availability():
 
     events = Event.query.filter(
         Event.owner.in_(calendar_owners),
-        Event.end > range_start,
-        Event.start < range_end,
-        Event.end > Event.start
+        Event.end >= range_start,
+        Event.start <= range_end
     ).all()
 
     users_by_email = {
@@ -763,10 +817,19 @@ def get_friend_availability():
         owner_username = owner.username if owner else event.owner
         is_current_user_event = event.owner == current_user.email
 
+        event_start = event.start
+        event_end = event.end
+
+        if event.isTask:
+            event_end = event_start + timedelta(hours=1)
+
+        if event_end <= range_start or event_start >= range_end:
+            continue
+
         busy_events.append({
             'title': event.title if is_current_user_event else f'Busy - @{owner_username}',
-            'start': event.start.isoformat(),
-            'end': event.end.isoformat(),
+            'start': event_start.isoformat(),
+            'end': event_end.isoformat(),
             'backgroundColor': '#f97316' if is_current_user_event else '#ef4444',
             'borderColor': '#ea580c' if is_current_user_event else '#dc2626',
             'extendedProps': {
@@ -774,10 +837,11 @@ def get_friend_availability():
                 'owner_username': owner_username,
                 'is_current_user_event': is_current_user_event,
                 'location': event.location if is_current_user_event else None,
-                'description': event.description if is_current_user_event else None
+                'description': event.description if is_current_user_event else None,
+                'isTask': event.isTask
             },
-            'start_dt': event.start,
-            'end_dt': event.end
+            'start_dt': event_start,
+            'end_dt': event_end
         })
 
     free_slots = generate_common_free_slots(range_start, range_end, busy_events)

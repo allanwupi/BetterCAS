@@ -19,11 +19,15 @@ body {
 
 .sidebar {
   width: 260px;
+  min-height: 100vh;
+  flex-shrink: 0;
+  align-self: flex-start;
   background: rgba(15, 23, 42, 0.96);
   color: white;
   transition: none;
   overflow: hidden;
-  position: relative;
+  position: sticky;
+  top: 0;
   box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
   backdrop-filter: blur(12px);
 }
@@ -41,7 +45,7 @@ html.sidebar-collapsed .sidebar {
 }
 
 .sidebar-header {
-  padding: 22px 18px;
+  padding: 20px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
   display: flex;
   align-items: center;
@@ -498,12 +502,6 @@ input[type="file"]:focus {
   font-weight: 700;
 }
 
-.friends-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-}
-
 .friend-card {
   background: rgba(255,255,255,0.88);
   border: 1px solid #e5ecf5;
@@ -779,10 +777,6 @@ input[type="file"]:focus {
   .user-chip {
     align-items: flex-start;
   }
-}
-
-.friends-page {
-  padding: 24px;
 }
 
 .friends-header {

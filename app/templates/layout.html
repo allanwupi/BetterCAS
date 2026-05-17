@@ -34,25 +34,25 @@
 	  <!-- Sidebar with navigation links, shared across pages -->
       <ul class="nav-links">
         <li data-section="calendar-section">
-          <a {% if calendar_active is defined %} class="active" {% endif %} href="{{ url_for('calendar') }}">
+          <a {% if calendar_active is defined %} class="active" {% endif %} id="calendarLink" href="{{ url_for('main.calendar') }}">
           <span class="nav-icon">📅</span>
           <span class="label">Calendar</span>
           </a>
         </li>
         <li data-section="todo-section">
-          <a {% if todo_active is defined %} class="active" {% endif %} href="{{ url_for('to_do_list') }}">
+          <a {% if todo_active is defined %} class="active" {% endif %} id="todoLink" href="{{ url_for('main.to_do_list') }}">
             <span class="nav-icon">✅</span>
             <span class="label">To-do List</span>
           </a>
         </li>
         <li data-section="friends-section">
-          <a {% if friends_active is defined %} class="active" {% endif %} href="{{ url_for('friends') }}">
+          <a {% if friends_active is defined %} class="active" {% endif %} id="friendsLink" href="{{ url_for('main.friends') }}">
             <span class="nav-icon">👥</span>
             <span class="label">Friends</span>
           </a>
         </li>
         <li data-section="import-section">
-          <a {% if import_active is defined %} class="active" {% endif %} href="{{ url_for('imported_calendars') }}">
+          <a {% if import_active is defined %} class="active" {% endif %} id="importLink" href="{{ url_for('main.imported_calendars') }}">
             <span class="nav-icon">📥</span>
             <span class="label">Import Calendar</span>
           </a>

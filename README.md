@@ -1,16 +1,17 @@
-# BetterCAS
+# MyCal
 
 ## Description
 A web app developed for the CITS3403 Agile Web Development group project. This is a calendar and task reminder tool for university assignments and studying, featuring:
+- Calendar
 - To-do list
-- Calendar views
-- Sharing calendars with friends
+- View availability of friends
+- Import and export calendars
 
 ## List of Group Members
 | UWA ID   | Name               | GitHub Username |
 |----------|--------------------|-----------------|
 | 23810308 | Allan Wu           | allanwupi       |
-| 24272225 | Aidan Mills        | Rangarade       |
+| 24272225 | Audrey Mills       | Rangarade       |
 | 24367195 | Hongshen Zheng     | hz7443          |
 | 24227546 | Tashan Kirubagaran | tashan-kiru     |
 
@@ -23,16 +24,26 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Create the database tables:
+Set a secret key environment variable:
+```bash
+export MYCAL_SECRET_KEY="your-secret-key-here"
+```
+
+In Windows Powershell, run this instead:
+```powershell
+$Env:MYCAL_SECRET_KEY="your-secret-key-here"
+```
+
+Initalise/update database tables:
 
 ```bash
-flask --app mycal init-db
+flask --app mycal db upgrade
 ```
 
 Run the app:
 
 ```bash
-flask --app mycal run --debug
+flask --app mycal run
 ```
 
 Then open the local Flask URL:
@@ -41,11 +52,15 @@ Then open the local Flask URL:
 http://127.0.0.1:5000/
 ```
 
-Note: For local development, `SECRET_KEY` has a fallback value in `app/config.py`. For deployment, set a real secret key with:
+### Tests
+Run unit tests:
 
 ```bash
-export MYCAL_SECRET_KEY="your-secret-key-here"
+python -m unittest tests.unit_tests -v
 ```
 
-### Tests
-Not done yet
+Run Selenium tests:
+
+```bash
+python -m unittest tests.selenium_tests -v
+```

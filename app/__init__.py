@@ -4,42 +4,35 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 
-from app.config import Config
+from app.config import TestConfig, DeploymentConfig
 
-app = Flask(__name__)
-app.config.from_object(Config)
+db = SQLAlchemy()
+migrate = Migrate()
+login_manager = LoginManager()
+login_manager.login_view = 'main.landing'
 
-csrf = CSRFProtect(app)
-
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-
-login_manager = LoginManager(app)
-login_manager.login_view = 'landing'
+csrf = CSRFProtect()
 login_manager.login_message = 'Please log in to access your dashboard.'
 login_manager.login_message_category = 'warning'
 
-from app.models import User
+def create_app(config):
+    app = Flask(__name__)
+    app.config.from_object(config)
 
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+    csrf.init_app(app)
+
+    from app.blueprints import main
+    app.register_blueprint(main)
+
+    return app
+
+from app.models import User
 
 @login_manager.user_loader
 def load_user(email):
-    return User.query.get(email)
+    return db.session.get(User, email)
 
-
-from app import routes, models
-
-
-@app.cli.command('init-db')
-def init_db_command():
-    """Create database tables for local development."""
-    db.create_all()
-    print('Database tables created.')
-
-
-@app.cli.command('clear-db')
-def clear_db_command():
-    """Clear all data from the database tables for local development."""
-    db.drop_all()
-    db.create_all()
-    print('Database tables cleared and recreated.')
+from app import models
