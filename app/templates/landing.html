@@ -42,15 +42,15 @@
             {{ login_form.identifier.label }}
             {{ login_form.identifier(id="identifier", class="form-control") }}
 
-            {{ login_form.password.label }}
-            {{ login_form.password(id="password", class="form-control") }}
+            {{ login_form.password.label(for="login-password") }}
+            {{ login_form.password(id="login-password", class="form-control") }}
 
             <div class="form-check mt-2">
               <label class="form-check-label" for="remember">{{ login_form.remember.label.text }}</label>
               {{ login_form.remember(class="form-check-input") }}
             </div>
 
-            {{ login_form.submit(class="submit-btn w-100 mt-3") }}
+            {{ login_form.submit(id="login-submit", class="submit-btn w-100 mt-3") }}
           </form>
         </div>
 
@@ -65,13 +65,13 @@
             {{ signup_form.email.label }}
             {{ signup_form.email(id="email", class="form-control") }}
 
-            {{ signup_form.password.label }}
-            {{ signup_form.password(id="password", class="form-control") }}
+            {{ signup_form.password.label(for="signup-password") }}
+            {{ signup_form.password(id="signup-password", class="form-control") }}
 
-            {{ signup_form.confirm_password.label }}
-            {{ signup_form.confirm_password(id="confirm_password", class="form-control") }}
+            {{ signup_form.confirm_password.label(for="confirm-password") }}
+            {{ signup_form.confirm_password(id="confirm-password", class="form-control") }}
 
-            {{ signup_form.submit(class="submit-btn submit-btn w-100 mt-3") }}
+            {{ signup_form.submit(id="signup-submit",class="submit-btn submit-btn w-100 mt-3") }}
           </form>
         </div>
       </div>

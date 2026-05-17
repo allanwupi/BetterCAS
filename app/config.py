@@ -13,7 +13,11 @@ class Config:
         \nBash: `export MYCAL_SECRET_KEY='your_secret_key'`\nPowershell: `$Env:MYCAL_SECRET_KEY='your_secret_key'`""")
 
 class TestConfig(Config):
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = 'sqlite://'
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'connect_args': {'check_same_thread': False},
+        'poolclass': StaticPool,
+    }
     TESTING = True
 
 class DeploymentConfig(Config):

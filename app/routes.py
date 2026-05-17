@@ -2,11 +2,10 @@ from flask import flash, jsonify, redirect, render_template, request, url_for, m
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import or_
 from app import db
-from app.models import Event, TaskStatus, User
 from app.forms import LoginForm, SignupForm
-from datetime import datetime, time, timedelta
-from icalendar import Calendar, Event as ICalEvent
 from app.models import Event, TaskStatus, User, Friendship, FriendshipStatus
+from datetime import UTC, datetime, time, timedelta
+from icalendar import Calendar, Event as ICalEvent
 from app.blueprints import main
 
 
@@ -279,7 +278,7 @@ def export_ics():
         if e.description:
             ical_event.add('description', e.description)
 
-        ical_event.add('dtstamp', datetime.utcnow())
+        ical_event.add('dtstamp', datetime.now(UTC))
 
         # Unique ID helps calendar apps deduplicate
         ical_event.add('uid', f"{e.id}@myapp")
@@ -525,7 +524,7 @@ def send_friend_request():
     if receiver_email == current_user.email:
         return jsonify({'error': 'You cannot add yourself'}), 400
 
-    receiver = User.query.get(receiver_email)
+    receiver = db.session.get(User, receiver_email)
 
     if not receiver:
         return jsonify({'error': 'User not found'}), 404
@@ -563,7 +562,10 @@ def send_friend_request():
 @main.route('/api/friends/accept-request/<int:friendship_id>', methods=['POST'])
 @login_required
 def accept_friend_request(friendship_id):
-    friendship = Friendship.query.get_or_404(friendship_id)
+    friendship = db.session.get(Friendship, friendship_id)
+
+    if not friendship:
+        return jsonify({'error': 'Friend request not found'}), 404
 
     if friendship.receiver_email != current_user.email:
         return jsonify({'error': 'Unauthorized'}), 403
@@ -580,7 +582,10 @@ def accept_friend_request(friendship_id):
 @main.route('/api/friends/reject-request/<int:friendship_id>', methods=['POST'])
 @login_required
 def reject_friend_request(friendship_id):
-    friendship = Friendship.query.get_or_404(friendship_id)
+    friendship = db.session.get(Friendship, friendship_id)
+
+    if not friendship:
+        return jsonify({'error': 'Friend request not found'}), 404
 
     if friendship.receiver_email != current_user.email:
         return jsonify({'error': 'Unauthorized'}), 403
@@ -597,7 +602,10 @@ def reject_friend_request(friendship_id):
 @main.route('/api/friends/remove/<int:friendship_id>', methods=['DELETE'])
 @login_required
 def remove_friend(friendship_id):
-    friendship = Friendship.query.get_or_404(friendship_id)
+    friendship = db.session.get(Friendship, friendship_id)
+
+    if not friendship:
+        return jsonify({'error': 'Friend request not found'}), 404
 
     if (
         friendship.requester_email != current_user.email and
@@ -616,7 +624,7 @@ def remove_friend(friendship_id):
 @main.route('/api/friends/list', methods=['GET'])
 @login_required
 def get_friends_list():
-    friendships = Friendship.query.filter(
+    friendships = db.session.query(Friendship).filter(
         or_(
             Friendship.requester_email == current_user.email,
             Friendship.receiver_email == current_user.email
@@ -645,7 +653,7 @@ def get_friends_list():
 
         elif friendship.status == FriendshipStatus.PENDING:
             if friendship.requester_email == current_user.email:
-                receiver = User.query.get(friendship.receiver_email)
+                receiver = db.session.get(User, friendship.receiver_email)
 
                 pending_sent.append({
                     'friendship_id': friendship.id,
@@ -681,7 +689,7 @@ def parse_iso_datetime(value):
 
 def users_are_accepted_friends(user_email, friend_email):
     """Check that two users are accepted friends."""
-    return Friendship.query.filter(
+    return db.session.query(Friendship).filter(
         Friendship.status == FriendshipStatus.ACCEPTED,
         or_(
             db.and_(
@@ -799,7 +807,7 @@ def get_friend_availability():
 
     calendar_owners = [current_user.email] + allowed_friend_emails
 
-    events = Event.query.filter(
+    events = db.session.query(Event).filter(
         Event.owner.in_(calendar_owners),
         Event.end >= range_start,
         Event.start <= range_end
@@ -807,7 +815,7 @@ def get_friend_availability():
 
     users_by_email = {
         user.email: user
-        for user in User.query.filter(User.email.in_(calendar_owners)).all()
+        for user in db.session.query(User).filter(User.email.in_(calendar_owners)).all()
     }
 
     busy_events = []
